@@ -12,25 +12,21 @@ provider "aws" {
   region  = "us-west-1"
 }
 
-resource "aws_instance" "web_server" {
-  ami                    = "ami-005c06c6de69aee84"
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.instance.id]
-
-  tags = {
-    Name = "terraform-example"
-  }
-
-  user_data = <<-EOF
-  	      #!/bin/bash
-  	      yum -y update
-	      yum -y install httpd
-  	      systemctl enable httpd
-	      systemctl start httpd
-  	      echo 'Hello world!' > /var/www/html/index.html 
-  	      EOF
-
-}
+#resource "aws_instance" "web_server" {
+#  ami                    = "ami-005c06c6de69aee84"
+#  instance_type          = "t2.micro"
+#  vpc_security_group_ids = [aws_security_group.instance.id]
+#
+#  tags = {
+#    Name = "terraform-example"
+#  }
+#
+#  user_data = data.template_file.user_data.rendered
+#
+#  lifecycle {
+#    create_before_destroy = true
+#}
+#}
 
 resource "aws_security_group" "instance" {
   name = "terraform-example-instance"
@@ -75,14 +71,7 @@ resource "aws_launch_configuration" "example" {
   image_id        = "ami-005c06c6de69aee84"
   instance_type   = "t2.micro"
   security_groups = [aws_security_group.instance.id]
-  user_data       = <<-EOF
-  	      #!/bin/bash
-  	      yum -y update
-	      yum -y install httpd
-  	      systemctl enable httpd
-	      systemctl start httpd
-  	      echo 'Hello world!' > /var/www/html/index.html 
-  	      EOF
+  user_data = data.template_file.user_data.rendered
   lifecycle {
     create_before_destroy = true
   }
@@ -159,37 +148,6 @@ resource "aws_lb_target_group" "asg" {
 
 }
 
-resource "aws_s3_bucket" "terraform_state" {
-  bucket = "sharg-terraform-up-and-running"
-  lifecycle {
-#    prevent_destroy = true
-  }
-
-  versioning {
-    enabled = true
-  }
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
-    }
-
-  }
-}
-
-resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "shargool-terraform-up-and-running-locks"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-}
-
 variable "server_port" {
   description = "The port the server will use for HTTP requests"
   type        = number
@@ -209,13 +167,31 @@ data "aws_subnet_ids" "default" {
   vpc_id = data.aws_vpc.default.id
 }
 
-#terraform {
-# backend "s3" {
-#bucket = "sharg-terraform-up-and-running"
-#key = "global/s3/terraform.tfstate"
-#region = "us-west-1"
+data "terraform_remote_state" "db" {
+  backend = "s3"
+  config = {
+    bucket = "sharg-terraform-up-and-running"
+    key    = "stage/datastores/mysql/terraform.tfstate"
+    region = "us-west-1"
+  }
+}
 
-#dynamodb_table = "shargool-terraform-up-and-running-locks"
-#encrypt = true
-#}
-#}
+data "template_file" "user_data" {
+  template = file("userdata.sh")
+  vars = {
+    server_port = var.server_port
+    db_address  = data.terraform_remote_state.db.outputs.db_address
+    db_port     = data.terraform_remote_state.db.outputs.port
+  }
+}
+
+terraform {
+  backend "s3" {
+    bucket = "sharg-terraform-up-and-running"
+    key    = "stage/services/webserver-cluster/terraform.tfstate"
+    region = "us-west-1"
+
+    dynamodb_table = "shargool-terraform-up-and-running-locks"
+    encrypt        = true
+  }
+}
