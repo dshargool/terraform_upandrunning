@@ -13,7 +13,7 @@ provider "aws" {
 }
 
 module "db_instance" {
-  source = "../../../modules/datastores/mysql"
+  source = "github.com/dshargool/terraform_upandrunning//Ch4/modules/datastores/mysql?ref=v0.0.1"
     db_prefix = "prod"
     db_password = var.db_password
 }
