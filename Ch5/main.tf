@@ -13,14 +13,24 @@ provider "aws" {
 }
 
 resource "aws_iam_user" "example" {
-  count = length(var.user_names)
-  name = var.user_names[count.index]
+  for_each = toset(var.user_names)
+  name = each.value
 }
 
 variable "user_names" {
   description = "User names for IAM users"
   type = list(string)
-  default = ["neo", "trinity"]
+  default = ["neo", "morpheus", "trinity"]
+}
+
+variable "hero_thousand_faces" {
+  description = "map"
+  type = map(string)
+  default = {
+    neo = "hero"
+    trinity = "love interest"
+    morpheus = "mentor"
+}
 }
 
 terraform {
