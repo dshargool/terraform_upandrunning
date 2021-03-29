@@ -13,7 +13,7 @@ provider "aws" {
 }
 
 module "db_instance" {
-  source = "../../../modules/datastores/mysql"
+  source = "../../../../modules/datastores/mysql"
     db_prefix = "stage"
     db_password = var.db_password
 }
