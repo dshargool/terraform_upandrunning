@@ -14,23 +14,71 @@ provider "aws" {
 
 resource "aws_iam_user" "example" {
   for_each = toset(var.user_names)
-  name = each.value
+  name     = each.value
+}
+
+resource "aws_iam_policy" "cloudwatch_read_only" {
+  name   = "cloudwatch-read-only"
+  policy = data.aws_iam_policy_document.cloudwatch_read_only.json
+}
+
+data "aws_iam_policy_document" "cloudwatch_read_only" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudwatch:Describe*",
+      "cloudwatch:Get*",
+      "cloudwatch:List*"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "cloudwatch_full_access" {
+  name   = "cloudwatch-full-access"
+  policy = data.aws_iam_policy_document.cloudwatch_full_access.json
+}
+
+data "aws_iam_policy_document" "cloudwatch_full_access" {
+  statement {
+    effect    = "Allow"
+    actions   = ["cloudwatch:*"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_user_policy_attachment" "neo_cloudwatch_full_access" {
+  count = var.give_neo_cloudwatch_full_access ? 1 : 0
+
+  user       = aws_iam_user.example["neo"].name
+  policy_arn = aws_iam_policy.cloudwatch_full_access.arn
+}
+resource "aws_iam_user_policy_attachment" "neo_cloudwatch_read_only" {
+  count = var.give_neo_cloudwatch_full_access ? 0 : 1
+
+  user       = aws_iam_user.example["neo"].name
+  policy_arn = aws_iam_policy.cloudwatch_read_only.arn
 }
 
 variable "user_names" {
   description = "User names for IAM users"
-  type = list(string)
-  default = ["neo", "morpheus", "trinity"]
+  type        = list(string)
+  default     = ["neo", "morpheus", "trinity"]
 }
 
 variable "hero_thousand_faces" {
   description = "map"
-  type = map(string)
+  type        = map(string)
   default = {
-    neo = "hero"
-    trinity = "love interest"
+    neo      = "hero"
+    trinity  = "love interest"
     morpheus = "mentor"
+  }
 }
+
+variable "give_neo_cloudwatch_full_access" {
+  description = "If true, neo gets full access to CloudWatch"
+  type        = bool
 }
 
 terraform {
