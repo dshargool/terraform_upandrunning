@@ -27,3 +27,8 @@ variable "max_size" {
   description = "Maximum number of instances in ASG"
   type        = number
 }
+
+variable "enable_autoscaling" {
+  description = "If set to true, enable autoscaling"
+type = bool
+}
