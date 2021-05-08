@@ -30,5 +30,15 @@ variable "max_size" {
 
 variable "enable_autoscaling" {
   description = "If set to true, enable autoscaling"
-type = bool
+  type        = bool
+}
+
+variable "server_text" {
+  description = "Text to show on the server"
+  type = string
+}
+
+variable "ami" {
+  description = "The AMI to run in the cluster"
+  type = string
 }

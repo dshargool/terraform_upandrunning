@@ -51,8 +51,8 @@ resource "aws_security_group_rule" "allow_all_outbound" {
 }
 
 resource "aws_launch_configuration" "example" {
-  name            = "${var.cluster_name}-lchcfg"
-  image_id        = "ami-005c06c6de69aee84"
+  //name            = "${var.cluster_name}-lchcfg"
+  image_id        = var.ami
   instance_type   = var.instance_type
   security_groups = [aws_security_group.instance.id]
   user_data       = data.template_file.user_data.rendered
@@ -62,6 +62,7 @@ resource "aws_launch_configuration" "example" {
 }
 
 resource "aws_autoscaling_group" "example" {
+  name = "${var.cluster_name}-${aws_launch_configuration.example.name}"
   launch_configuration = aws_launch_configuration.example.name
   vpc_zone_identifier  = data.aws_subnet_ids.default.ids
 
@@ -71,6 +72,10 @@ resource "aws_autoscaling_group" "example" {
   min_size = var.min_size
   max_size = var.max_size
 
+  lifecycle {
+    create_before_destroy = true
+}
+
   tag {
     key                 = "Name"
     value               = "${var.cluster_name}-terraform-asg-example"
@@ -79,56 +84,56 @@ resource "aws_autoscaling_group" "example" {
 }
 
 resource "aws_autoscaling_schedule" "scale_out_during_business" {
-  count = var.enable_autoscaling ? 1 : 0
-scheduled_action_name = "${var.cluster_name}-scale-out-during-business"
-min_size = 2 
-max_size = 10
-desired_capacity = 10
-recurrence = "0 9 * * *"
-autoscaling_group_name = aws_autoscaling_group.example.name
+  count                  = var.enable_autoscaling ? 1 : 0
+  scheduled_action_name  = "${var.cluster_name}-scale-out-during-business"
+  min_size               = 2
+  max_size               = 10
+  desired_capacity       = 10
+  recurrence             = "0 9 * * *"
+  autoscaling_group_name = aws_autoscaling_group.example.name
 }
 
 resource "aws_autoscaling_schedule" "scale_in_at_night" {
-  count = var.enable_autoscaling ? 1 : 0
-scheduled_action_name = "${var.cluster_name}-scale-in-at-night"
-min_size = 2 
-max_size = 10
-desired_capacity = 2
-recurrence = "0 17 * * *"
-autoscaling_group_name = aws_autoscaling_group.example.name
+  count                  = var.enable_autoscaling ? 1 : 0
+  scheduled_action_name  = "${var.cluster_name}-scale-in-at-night"
+  min_size               = 2
+  max_size               = 10
+  desired_capacity       = 2
+  recurrence             = "0 17 * * *"
+  autoscaling_group_name = aws_autoscaling_group.example.name
 }
 
 resource "aws_cloudwatch_metric_alarm" "high_cpu_utilization" {
-  alarm_name = "${var.cluster_name}-high-cpu-utilization"
-  namespace = "AWS/EC2"
+  alarm_name  = "${var.cluster_name}-high-cpu-utilization"
+  namespace   = "AWS/EC2"
   metric_name = "CPUUtilization"
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.example.name
   }
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods = 1
-  period = 300
-  statistic = "Average"
-  threshold = 90
-  unit = "Percent"
+  evaluation_periods  = 1
+  period              = 300
+  statistic           = "Average"
+  threshold           = 90
+  unit                = "Percent"
 }
 
 resource "aws_cloudwatch_metric_alarm" "low_cpu_credit_balance" {
-count = format ("%.1s", var.instance_type ) == "t" ? 1 : 0  
-alarm_name = "${var.cluster_name}-low-cpu-credit-balance"
-  namespace = "AWS/EC2"
+  count       = format("%.1s", var.instance_type) == "t" ? 1 : 0
+  alarm_name  = "${var.cluster_name}-low-cpu-credit-balance"
+  namespace   = "AWS/EC2"
   metric_name = "CPUCreditBalance"
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.example.name
   }
   comparison_operator = "LessThanThreshold"
-  evaluation_periods = 1
-  period = 300
-  statistic = "Minimum"
-  threshold = 10
-  unit = "Count"
+  evaluation_periods  = 1
+  period              = 300
+  statistic           = "Minimum"
+  threshold           = 10
+  unit                = "Count"
 }
 
 resource "aws_lb" "example" {
@@ -208,6 +213,7 @@ data "template_file" "user_data" {
     server_port = local.http_port
     db_address  = data.terraform_remote_state.db.outputs.db_address
     db_port     = data.terraform_remote_state.db.outputs.port
+    server_text = var.server_text
   }
 }
 

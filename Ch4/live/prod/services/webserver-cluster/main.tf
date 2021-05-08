@@ -10,7 +10,8 @@ module "webserver_cluster" {
   instance_type          = "t2.micro"
   min_size               = 3
   max_size               = 5
-  enable_autoscaling	= true
+  enable_autoscaling	 = true
+  enable_new_userdata    = false
 }
 
 terraform {
